@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SwipeLayout attributes -->
+    <declare-styleable name="SwipeLayout">
+        <attr name="right_swipe_enabled" format="boolean" />
+        <attr name="left_swipe_enabled" format="boolean" />
+        <attr name="clamp" format="float" />
+        <attr name="gravity" format="string" />
+    </declare-styleable>
+</resources>

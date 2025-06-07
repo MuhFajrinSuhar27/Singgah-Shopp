@@ -1,0 +1,19 @@
+ext {
+    addRepositories = { RepositoryHandler handler ->
+        handler.google()
+        handler.mavenCentral()
+
+        // Repository Midtrans
+        handler.maven {
+            url "https://sdk.midtrans.com/maven"
+        }
+
+        // PENTING: Tambahkan JitPack SEBELUM jcenter
+        handler.maven {
+            url "https://www.jitpack.io"
+        }
+
+        // JCenter untuk library lama
+        handler.jcenter()
+    }
+}

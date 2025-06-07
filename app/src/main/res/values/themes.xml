@@ -1,0 +1,24 @@
+<resources>
+    <!-- Base application theme. -->
+    <style name="Base.Theme.ProjectAkhirBismillah" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:windowBackground">@color/colorBackground</item>
+
+        <!-- Text appearance -->
+        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+        <item name="android:textColorSecondary">@color/textColorSecondary</item>
+
+        <!-- Card styles -->
+        <item name="materialCardViewStyle">@style/App.CardView</item>
+    </style>
+
+    <style name="App.CardView" parent="Widget.MaterialComponents.CardView">
+        <item name="cardElevation">2dp</item>
+        <item name="cardCornerRadius">12dp</item>
+        <item name="cardBackgroundColor">@color/colorCardBackground</item>
+    </style>
+
+    <style name="Theme.ProjectAkhirBismillah" parent="Base.Theme.ProjectAkhirBismillah" />
+</resources>

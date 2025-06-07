@@ -1,0 +1,115 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+// Konfigurasi untuk mengatasi dependency conflicts
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.activity:activity:1.8.0'
+    }
+}
+
+android {
+    namespace 'com.example.projectakhirbismillah'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.projectakhirbismillah"
+        minSdk 31
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            buildConfigField "String", "MIDTRANS_SERVER_KEY", "\"${project.findProperty('MIDTRANS_SERVER_KEY_DEBUG') ?: ''}\""
+        }
+        release {
+            buildConfigField "String", "MIDTRANS_SERVER_KEY", "\"${project.findProperty('MIDTRANS_SERVER_KEY_PROD') ?: ''}\""
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    // Perbaikan konflik file
+    packagingOptions {
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/NOTICE'
+        pickFirst 'lib/armeabi-v7a/libc++_shared.so'
+        pickFirst 'lib/arm64-v8a/libc++_shared.so'
+        pickFirst 'lib/x86/libc++_shared.so'
+        pickFirst 'lib/x86_64/libc++_shared.so'
+    }
+}
+
+dependencies {
+    // Library yang sudah ada
+    implementation libs.appcompat
+    implementation libs.material
+    implementation libs.activity
+    implementation libs.constraintlayout
+    implementation libs.navigation.fragment
+    implementation libs.navigation.ui
+
+    // Retrofit & Glide
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    implementation 'com.github.bumptech.glide:glide:4.16.0'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
+
+    // UI components
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'androidx.viewpager2:viewpager2:1.0.0'
+
+
+    implementation 'com.midtrans:uikit:1.30.1'
+
+    // Midtrans 1.26.0 - GUNAKAN VERSI INI SAJA
+//    implementation ('com.midtrans:uikit:1.26.0') {
+//        exclude group: 'com.android.support'
+//
+//        exclude group: 'ru.rambler.android', module: 'swipe-layout'
+//
+//        // Exclude semua dependency yang bermasalah
+//        exclude group: 'ru.rambler.android'
+//        exclude group: 'me.saket'
+//        exclude group: 'com.akexorcist'
+//        exclude group: 'com.github.stfalcon'
+//    }
+
+    // HAPUS semua dependency alternatif ini (tidak diperlukan untuk versi 1.26.0)
+    // implementation 'com.github.rambler-digital-solutions:swipe-layout-android:1.0.17'
+    // implementation 'com.github.saket:Better-Link-Movement-Method:2.2.0'
+    // implementation 'com.github.akexorcist:android-localization:1.2.10'
+    // implementation 'com.github.stfalcon:smsverifycatcher:0.3.3'
+
+
+
+
+    // GSON untuk serialisasi JSON (diperlukan Midtrans)
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.9.3'
+    implementation 'com.google.code.gson:gson:2.9.0'
+    
+
+    // Testing
+    testImplementation libs.junit
+    androidTestImplementation libs.ext.junit
+    androidTestImplementation libs.espresso.core
+}

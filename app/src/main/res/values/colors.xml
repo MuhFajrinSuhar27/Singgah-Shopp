@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="colorPrimary">#1565C0</color>
+    <color name="colorPrimaryDark">#0D47A1</color>
+    <color name="colorAccent">#FF4081</color>
+    <color name="textColorPrimary">#212121</color>
+    <color name="textColorSecondary">#757575</color>
+    <color name="colorBackground">#FAFAFA</color>
+    <color name="colorCardBackground">#FFFFFF</color>
+
+    <!-- Profile screen colors -->
+    <color name="profile_background">#F5F5F7</color>
+    <color name="profile_text_primary">#212121</color>
+    <color name="profile_text_secondary">#757575</color>
+    <color name="profile_accent_color">#3F51B5</color>
+    <color name="profile_accent_light">#FF5252</color>
+    <color name="profile_divider">#E0E0E0</color>
+    <color name="profile_header_start">#3F51B5</color>
+    <color name="profile_header_end">#5C6BC0</color>
+
+    <style name="CircularImageStyle" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+
+    <color name="accent_color_light">#82B1FF</color>
+    <color name="divider">#EEEEEE</color>
+
+    <!-- Add these colors to your existing colors.xml -->
+    <color name="primary">#6366F1</color>
+    <color name="primary_variant">#4F46E5</color>
+    <color name="secondary">#EC4899</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="background">#F8F9FA</color>
+
+    <color name="outline_variant">#E5E7EB</color>
+    <color name="white_alpha_20">#33FFFFFF</color>
+
+    <color name="promo_background">#FFDE59</color>
+    <color name="background_light">#F5F5F5</color>
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="accent_color">#2196F3</color>
+
+     <color name="red">#FF0000</color>
+    <color name="gray_divider">#DDDDDD</color>
+</resources>
+
+

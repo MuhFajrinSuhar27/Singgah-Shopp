@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">ProjectAkhirBismillah</string>
+    <string name="featured_products">Featured Products</string>
+    <string name="new_arrivals">New Arrivals</string>
+
+    <string name="title_home">Home</string>
+    <string name="title_cart">Keranjang</string>
+    <string name="title_favorites">Favorit</string>
+    <string name="title_profile">Profil</string>
+
+    <!-- Fragment titles -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="cart_empty_message">Keranjang belanja Anda kosong</string>
+    <string name="favorites_empty_message">Anda belum memiliki produk favorit</string>
+    <string name="profile_title">Profil Saya</string>
+
+    <string name="login_title">Login</string>
+    <string name="register_title">Register</string>
+    <string name="email_hint">Email</string>
+    <string name="password_hint">Password</string>
+    <string name="confirm_password_hint">Confirm Password</string>
+    <string name="full_name_hint">Full Name</string>
+    <string name="phone_hint">Phone Number</string>
+    <string name="login_button">Login</string>
+    <string name="register_button">Register</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="dont_have_account">Don\'t have an account?</string>
+    <string name="already_have_account">Already have an account?</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="sign_in">Sign In</string>
+    <string name="terms_and_conditions">I agree to the Terms and Conditions</string>
+    <string name="or_sign_in_with">Or sign in with</string>
+</resources>
