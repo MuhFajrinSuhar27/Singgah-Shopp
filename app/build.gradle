@@ -27,12 +27,7 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
-        debug {
-            buildConfigField "String", "MIDTRANS_SERVER_KEY", "\"${project.findProperty('MIDTRANS_SERVER_KEY_DEBUG') ?: ''}\""
-        }
-        release {
-            buildConfigField "String", "MIDTRANS_SERVER_KEY", "\"${project.findProperty('MIDTRANS_SERVER_KEY_PROD') ?: ''}\""
-        }
+
     }
 
     compileOptions {

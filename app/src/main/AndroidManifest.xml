@@ -18,6 +18,9 @@
         tools:replace="android:allowBackup"
         tools:targetApi="31">
         <activity
+            android:name=".activity.ProductDetailActivity"
+            android:exported="false" />
+        <activity
             android:name=".activity.PaymentResultActivity"
             android:exported="false">
             <intent-filter>
@@ -52,9 +55,7 @@
         <activity
             android:name=".fragment.ProfileFragment"
             android:exported="false" />
-        <activity
-            android:name=".fragment.FavoriteFragment"
-            android:exported="false" />
+
         <activity
             android:name=".fragment.CartFragment"
             android:exported="false" />

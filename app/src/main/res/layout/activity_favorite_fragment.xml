@@ -6,16 +6,35 @@
     android:layout_height="match_parent"
     tools:context=".fragment.FavoriteFragment">
 
-    <TextView
-        android:id="@+id/text_favorites"
+    <!-- Empty state layout -->
+    <LinearLayout
+        android:id="@+id/empty_favorites_layout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/favorites_empty_message"
-        android:textAppearance="?attr/textAppearanceBody1"
+        android:gravity="center"
+        android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:layout_width="250dp"
+            android:layout_height="190dp"
+            android:layout_marginBottom="16dp"
+            android:contentDescription="No favorites"
+            android:src="@drawable/nofavorite" />
+
+        <TextView
+            android:id="@+id/text_favorites"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/favorites_empty_message"
+            android:textAppearance="?attr/textAppearanceBody1"
+            android:textColor="@color/text_secondary" />
+
+    </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_favorites"
@@ -23,7 +42,7 @@
         android:layout_height="match_parent"
         android:clipToPadding="false"
         android:padding="8dp"
-        android:visibility="gone"
+        android:visibility="visible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

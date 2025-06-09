@@ -1,14 +1,19 @@
 package com.example.projectakhirbismillah.fragment;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -18,8 +23,10 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.viewpager2.widget.ViewPager2;
 
+import com.example.projectakhirbismillah.MainActivity;
 import com.example.projectakhirbismillah.R;
 import com.example.projectakhirbismillah.adapter.BannerAdapter;
 import com.example.projectakhirbismillah.adapter.CategoryAdapter;
@@ -30,6 +37,9 @@ import com.example.projectakhirbismillah.model.BannerItem;
 import com.example.projectakhirbismillah.model.CategoryItem;
 import com.example.projectakhirbismillah.model.Product;
 import com.example.projectakhirbismillah.model.ProductResponse;
+import com.example.projectakhirbismillah.util.FavoriteManager;
+import com.example.projectakhirbismillah.util.NetworkStateManager;
+import com.example.projectakhirbismillah.util.ThemeHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,6 +69,15 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
     private Call<ProductResponse> apiCall;
     private String currentCategory = "all"; // Default category: all
     private int currentCategoryIndex = 0;
+    private SwipeRefreshLayout swipeRefreshLayout;
+    private ProgressBar progressBar;
+    private ImageButton themeToggleButton; // For theme toggle
+    private LinearLayout mainLinearLayout; // Root LinearLayout in NestedScrollView
+
+    // Network error UI components
+    private View networkErrorLayout;
+    private Button buttonRefresh;
+    private boolean isLoading = false;
 
     // Kategori yang ingin ditampilkan
     private final String[] categories = {
@@ -69,8 +88,36 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
     };
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.activity_home_fragment, container, false);
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.activity_home_fragment, container, false);
+
+        // Get main container (frame layout)
+        ViewGroup rootView = view.findViewById(R.id.home_root_layout);
+
+        // Initialize views
+        recyclerProducts = view.findViewById(R.id.recycler_products);
+        progressBar = view.findViewById(R.id.progress_bar);
+
+        // Get the main LinearLayout inside NestedScrollView
+        mainLinearLayout = view.findViewById(R.id.main_linear_layout);
+
+        // Inflate network error layout
+        networkErrorLayout = inflater.inflate(R.layout.network_error_layout, container, false);
+
+        // Add network error layout to root
+        rootView.addView(networkErrorLayout);
+
+        // Hide network error initially
+        networkErrorLayout.setVisibility(View.GONE);
+
+        // Setup refresh button
+        buttonRefresh = networkErrorLayout.findViewById(R.id.button_refresh);
+        buttonRefresh.setOnClickListener(v -> retryLoading());
+
+        // Initialize FavoriteManager
+        FavoriteManager.getInstance().initialize(requireContext());
+
+        return view;
     }
 
     @Override
@@ -80,12 +127,14 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
         // Initialize views
         bannerViewPager = view.findViewById(R.id.banner_viewpager);
         indicatorContainer = view.findViewById(R.id.indicator_container);
-        recyclerProducts = view.findViewById(R.id.recycler_products);
-        recyclerCategories = view.findViewById(R.id.recycler_categories);
         textViewAll = view.findViewById(R.id.text_view_all);
+        recyclerCategories = view.findViewById(R.id.recycler_categories);
 
         // Setup carousel banner
         setupBannerCarousel();
+
+        // Create and add theme toggle button without trying to modify the NestedScrollView
+        addThemeToggleButton();
 
         // Setup categories
         setupCategories();
@@ -96,11 +145,113 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
         // Set click listener for "View all"
         textViewAll.setOnClickListener(v -> {
             Toast.makeText(getContext(), "View all products", Toast.LENGTH_SHORT).show();
-            // Implement navigation to all products screen if needed
         });
 
         // Fetch products from specific categories
         fetchAllProducts();
+    }
+
+    /**
+     * Menambahkan tombol toggle theme dengan cara yang aman
+     */
+    private void addThemeToggleButton() {
+        // Cari LinearLayout yang berisi categories section (judul "Categories")
+        View categoriesHeaderView = null;
+
+        // Cari parent dari TextView "Categories"
+        for (int i = 0; i < mainLinearLayout.getChildCount(); i++) {
+            View child = mainLinearLayout.getChildAt(i);
+            if (child instanceof TextView) {
+                TextView textView = (TextView) child;
+                if (textView.getText().toString().equals("Categories")) {
+                    categoriesHeaderView = textView;
+                    break;
+                }
+            }
+        }
+
+        if (categoriesHeaderView == null) {
+            Log.e(TAG, "Could not find Categories header view");
+            return;
+        }
+
+        // Buat container baru untuk tombol toggle
+        RelativeLayout toggleContainer = new RelativeLayout(requireContext());
+        LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+
+        // Buat tombol toggle
+        themeToggleButton = new ImageButton(requireContext());
+        themeToggleButton.setId(View.generateViewId());
+        themeToggleButton.setBackgroundResource(R.drawable.circle_button_background);
+        themeToggleButton.setPadding(16, 16, 16, 16);
+        themeToggleButton.setScaleType(ImageView.ScaleType.FIT_CENTER);
+
+        // Set ikon sesuai tema saat ini
+        updateThemeToggleIcon();
+
+        // Buat layout params untuk tombol
+        RelativeLayout.LayoutParams buttonParams = new RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.WRAP_CONTENT,
+                RelativeLayout.LayoutParams.WRAP_CONTENT);
+        buttonParams.addRule(RelativeLayout.ALIGN_PARENT_END);
+        buttonParams.setMargins(0, 8, 16, 8);
+
+        // Tambahkan tombol ke container
+        toggleContainer.addView(themeToggleButton, buttonParams);
+
+        // Tambahkan container sebelum categories header
+        int index = mainLinearLayout.indexOfChild(categoriesHeaderView);
+        mainLinearLayout.addView(toggleContainer, index, containerParams);
+
+        // Tambahkan listener untuk toggle tema
+        themeToggleButton.setOnClickListener(v -> toggleTheme());
+    }
+
+    /**
+     * Update the theme toggle icon based on current theme
+     */
+    private void updateThemeToggleIcon() {
+        boolean isDarkMode = ThemeHelper.isDarkMode(requireContext());
+        themeToggleButton.setImageResource(isDarkMode ?
+                R.drawable.ic_light_mode : R.drawable.ic_dark_mode);
+    }
+
+    /**
+     * Toggle between light and dark theme
+     */
+    private void toggleTheme() {
+        Log.d(TAG, "Toggle theme clicked. Current dark mode: " + ThemeHelper.isDarkMode(requireContext()));
+        
+        // Toggle tema
+        ThemeHelper.toggleTheme(requireContext());
+        
+        // Update ikon
+        updateThemeToggleIcon();
+        
+        // PENTING: Gunakan cara yang lebih kuat untuk restart activity
+        Log.d(TAG, "Restarting activity to apply new theme");
+        
+        // Gunakan Handler untuk delay sedikit agar SharedPreferences tersimpan
+        new Handler().postDelayed(() -> {
+            if (getActivity() != null) {
+                // Cara lebih pasti untuk restart activity dan menerapkan tema baru
+                Intent intent = new Intent(getActivity(), MainActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+                getActivity().finish();
+            }
+        }, 150); // Delay sedikit lebih lama untuk memastikan perubahan tema tersimpan
+    }
+
+    private void setupProductsGrid() {
+        // Setup RecyclerView with GridLayoutManager for item_product.xml
+        recyclerProducts.setLayoutManager(new GridLayoutManager(getContext(), 2));
+
+        // Initialize adapter with VIEW_TYPE_CARD for item_product.xml
+        productAdapter = new ProductAdapter(requireContext(), new ArrayList<>(), ProductAdapter.VIEW_TYPE_CARD);
+        recyclerProducts.setAdapter(productAdapter);
     }
 
     @Override
@@ -130,7 +281,6 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
 
         setupIndicators();
 
-      
         bannerViewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
@@ -139,7 +289,6 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
                 super.onPageSelected(position);
             }
         });
-
 
         autoScrollHandler = new Handler();
         autoScrollRunnable = new Runnable() {
@@ -150,19 +299,17 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
                 } else {
                     bannerViewPager.setCurrentItem(currentBannerPosition + 1);
                 }
-                autoScrollHandler.postDelayed(this, 3000); 
+                autoScrollHandler.postDelayed(this, 3000);
             }
         };
     }
 
     private List<BannerItem> createBannerItems() {
         List<BannerItem> items = new ArrayList<>();
-
-
         items.add(new BannerItem(R.drawable.promo_banner1, "", ""));
         items.add(new BannerItem(R.drawable.promo_banner2, "", ""));
         items.add(new BannerItem(R.drawable.promo_banner3, "", ""));
-
+        items.add(new BannerItem(R.drawable.promo_banner4, "", ""));
         return items;
     }
 
@@ -178,7 +325,7 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
             indicators[i].setLayoutParams(params);
             indicatorContainer.addView(indicators[i]);
         }
-        
+
         updateIndicators(0);
     }
 
@@ -219,19 +366,26 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
         categoryItems.add(new CategoryItem("fragrances", "Perfumes", R.drawable.perfume));
     }
 
-    private void setupProductsGrid() {
-        // Setup RecyclerView with empty adapter first
-        recyclerProducts.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        productAdapter = new ProductAdapter(requireContext(), new ArrayList<>(), true);
-        recyclerProducts.setAdapter(productAdapter);
-    }
-
     private void fetchAllProducts() {
-        // Reset daftar produk
+        // Reset product list
         allProducts.clear();
         currentCategoryIndex = 0;
+        isLoading = true;
 
-        // Mulai mengambil produk dari kategori pertama
+        // Show progress bar, hide error layout
+        if (progressBar != null) {
+            progressBar.setVisibility(View.VISIBLE);
+        }
+        hideNetworkError();
+
+        // Check for network connectivity
+        if (!isNetworkAvailable()) {
+            showNetworkError();
+            isLoading = false;
+            return;
+        }
+
+        // Start fetching products from first category
         fetchProductsByCategory(categories[currentCategoryIndex]);
     }
 
@@ -239,6 +393,13 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
         if (!isFragmentAttached) return;
 
         Log.d(TAG, "Fetching products for category: " + category);
+
+        // Double-check network connectivity before API call
+        if (!isNetworkAvailable()) {
+            showNetworkError();
+            isLoading = false;
+            return;
+        }
 
         ApiService apiService = RetrofitClient.getClient().create(ApiService.class);
         apiCall = apiService.getProductsByCategory(category);
@@ -255,10 +416,10 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
                     List<Product> categoryProducts = response.body().getProducts();
                     Log.d(TAG, "Received " + categoryProducts.size() + " products for " + category);
 
-                    // Tambahkan produk dari kategori ini ke list
+                    // Add products from this category to the list
                     allProducts.addAll(categoryProducts);
 
-                    // Lanjutkan ke kategori berikutnya atau update UI jika semua kategori selesai
+                    // Fetch next category or update UI if all categories are done
                     fetchNextCategoryOrUpdate();
                 } else {
                     Log.e(TAG, "Failed to fetch products for category: " + category);
@@ -271,7 +432,16 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
                 if (!isFragmentAttached || call.isCanceled()) return;
 
                 Log.e(TAG, "API call failed for " + category + ": " + t.getMessage());
-                fetchNextCategoryOrUpdate();
+
+                // Show error only if no products loaded yet
+                if (allProducts.isEmpty()) {
+                    showNetworkError();
+                } else {
+                    // If some products loaded, continue with what we have
+                    Toast.makeText(getContext(), "Gagal memuat beberapa produk", Toast.LENGTH_SHORT).show();
+                }
+
+                isLoading = false;
             }
         });
     }
@@ -279,12 +449,28 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
     private void fetchNextCategoryOrUpdate() {
         currentCategoryIndex++;
 
-        // Cek apakah masih ada kategori yang perlu diproses
+        // Check if there are more categories to process
         if (currentCategoryIndex < categories.length) {
             fetchProductsByCategory(categories[currentCategoryIndex]);
         } else {
-            // Semua kategori selesai, update UI
-            filterProductsByCategory(currentCategory);
+            // All categories done, update UI
+            if (swipeRefreshLayout != null) {
+                swipeRefreshLayout.setRefreshing(false);
+            }
+            if (progressBar != null) {
+                progressBar.setVisibility(View.GONE);
+            }
+
+            isLoading = false;
+
+            if (allProducts.isEmpty()) {
+                // If no products loaded, show error
+                showNetworkError();
+            } else {
+                // If products loaded, filter and display
+                hideNetworkError();
+                filterProductsByCategory(currentCategory);
+            }
         }
     }
 
@@ -303,8 +489,8 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
                     .collect(Collectors.toList());
         }
 
-        // Update adapter with filtered products
-        productAdapter = new ProductAdapter(requireContext(), filteredList, true);
+        // Update adapter with filtered products using VIEW_TYPE_CARD
+        productAdapter = new ProductAdapter(requireContext(), filteredList, ProductAdapter.VIEW_TYPE_CARD);
         recyclerProducts.setAdapter(productAdapter);
 
         // Update title
@@ -319,10 +505,8 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
             }
         }
 
-
         textViewAll.setText(filteredList.isEmpty() ? "No products" : "View all");
     }
-
 
     private String getCategoryDisplayName(String categoryId) {
         switch (categoryId) {
@@ -355,6 +539,16 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
         super.onResume();
         // Start auto-scroll when fragment is visible
         autoScrollHandler.postDelayed(autoScrollRunnable, 3000);
+
+        // Reload products if favoriteManager changed
+        if (productAdapter != null) {
+            productAdapter.notifyDataSetChanged();
+        }
+
+        // Update theme icon in case it was changed elsewhere
+        if (themeToggleButton != null) {
+            updateThemeToggleIcon();
+        }
     }
 
     @Override
@@ -362,5 +556,37 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
         // Stop auto-scroll when fragment is not visible
         autoScrollHandler.removeCallbacks(autoScrollRunnable);
         super.onPause();
+    }
+
+    private void retryLoading() {
+        if (!isLoading) {
+            hideNetworkError();
+            fetchAllProducts();
+        }
+    }
+
+    private void showNetworkError() {
+        if (progressBar != null) {
+            progressBar.setVisibility(View.GONE);
+        }
+        if (networkErrorLayout != null) {
+            networkErrorLayout.setVisibility(View.VISIBLE);
+        }
+        if (recyclerProducts != null) {
+            recyclerProducts.setVisibility(View.GONE);
+        }
+    }
+
+    private void hideNetworkError() {
+        if (networkErrorLayout != null) {
+            networkErrorLayout.setVisibility(View.GONE);
+        }
+        if (recyclerProducts != null) {
+            recyclerProducts.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private boolean isNetworkAvailable() {
+        return NetworkStateManager.getInstance().isNetworkAvailable();
     }
 }

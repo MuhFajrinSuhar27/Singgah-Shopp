@@ -25,7 +25,7 @@
                 android:background="@color/white"
                 android:padding="12dp"
                 android:scaleType="fitCenter"
-               />
+                />
 
             <ImageButton
                 android:id="@+id/button_favorite"
@@ -37,7 +37,7 @@
                 android:contentDescription="Add to favorites"
                 android:elevation="4dp"
                 android:src="@drawable/ic_favorite_border"
-                 />
+                />
 
             <!-- Discount Badge -->
             <TextView

@@ -1,25 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:forceDarkAllowed="false">
 
     <ImageView
         android:id="@+id/banner_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scaleType="centerCrop" />
+        android:scaleType="centerCrop"
+        android:forceDarkAllowed="false" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#33000000" />
+        android:background="#33000000"
+        android:forceDarkAllowed="false" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|start"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:forceDarkAllowed="false">
 
         <TextView
             android:id="@+id/banner_title"
@@ -39,5 +43,4 @@
             android:textColor="@color/white"
             android:textSize="16sp" />
     </LinearLayout>
-
 </FrameLayout>

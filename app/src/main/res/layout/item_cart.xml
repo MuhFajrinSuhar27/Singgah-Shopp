@@ -33,7 +33,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:layout_marginEnd="12dp"
-            android:layout_toStartOf="@id/cart_item_remove"
+            android:layout_toStartOf="@id/btn_remove"
             android:layout_toEndOf="@id/cart_item_image"
             android:orientation="vertical">
 
@@ -68,11 +68,21 @@
                 android:textColor="@color/text_primary"
                 android:textSize="16sp"
                 android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/cart_total_price"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Total: Rp 0"
+                android:textColor="@color/accent_color"
+                android:textSize="14sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Remove Button -->
+        <!-- Remove Button - ID DIUBAH -->
         <ImageButton
-            android:id="@+id/cart_item_remove"
+            android:id="@+id/btn_remove"
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:layout_alignParentEnd="true"
@@ -91,8 +101,9 @@
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
+            <!-- ID DIUBAH -->
             <ImageButton
-                android:id="@+id/cart_item_decrement"
+                android:id="@+id/btn_decrease"
                 android:layout_width="28dp"
                 android:layout_height="28dp"
                 android:background="@drawable/circle_light_background"
@@ -110,8 +121,9 @@
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
+            <!-- ID DIUBAH -->
             <ImageButton
-                android:id="@+id/cart_item_increment"
+                android:id="@+id/btn_increase"
                 android:layout_width="28dp"
                 android:layout_height="28dp"
                 android:background="@drawable/circle_accent_background"

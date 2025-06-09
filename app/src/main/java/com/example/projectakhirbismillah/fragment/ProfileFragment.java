@@ -1,6 +1,8 @@
 package com.example.projectakhirbismillah.fragment;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,6 +13,7 @@ import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 
+import com.example.projectakhirbismillah.LoginActivity;
 import com.example.projectakhirbismillah.MainActivity;
 import com.example.projectakhirbismillah.R;
 import com.example.projectakhirbismillah.util.SessionManager;
@@ -58,8 +61,20 @@ public class ProfileFragment extends Fragment {
     }
 
     private void handleLogout() {
-        if (getActivity() instanceof MainActivity) {
-            ((MainActivity) getActivity()).logoutUser();
+        try {
+            // Gunakan sessionManager yang sudah diinisialisasi langsung
+            sessionManager.logoutUser();
+
+            // Redirect ke LoginActivity
+            if (getActivity() != null) {
+                Intent intent = new Intent(getActivity(), LoginActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+                getActivity().finish();
+            }
+        } catch (Exception e) {
+            Log.e("ProfileFragment", "Error during logout: " + e.getMessage());
+            Toast.makeText(getContext(), "Logout failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 

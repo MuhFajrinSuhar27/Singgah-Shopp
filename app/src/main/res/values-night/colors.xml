@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme colors for Dark theme -->
+    <color name="colorPrimary">#5C6BC0</color>
+    <color name="colorPrimaryDark">#3F51B5</color>
+    <color name="colorAccent">#FF80AB</color>
+    <color name="textColorPrimary">#E0E0E0</color>
+    <color name="textColorSecondary">#B0B0B0</color>
+    <color name="colorBackground">#121212</color>
+    <color name="colorCardBackground">#1E1E1E</color>
+
+    <!-- Profile screen colors -->
+    <color name="profile_background">#121212</color>
+    <color name="profile_text_primary">#E0E0E0</color>
+    <color name="profile_text_secondary">#B0B0B0</color>
+    <color name="profile_accent_color">#7986CB</color>
+    <color name="profile_accent_light">#FF80AB</color>
+    <color name="profile_divider">#424242</color>
+    <color name="profile_header_start">#303F9F</color>
+    <color name="profile_header_end">#3949AB</color>
+
+    <!-- Common colors -->
+    <color name="accent_color_light">#82B1FF</color>
+    <color name="divider">#424242</color>
+
+    <color name="primary">#7B83F7</color>
+    <color name="primary_variant">#5F5BE8</color>
+    <color name="secondary">#F15EA5</color>
+    <color name="surface">#1E1E1E</color>
+    <color name="background">#121212</color>
+
+    <color name="outline_variant">#424242</color>
+    <color name="background_light">#1E1E1E</color>
+    <color name="text_primary">#E0E0E0</color>
+    <color name="text_secondary">#B0B0B0</color>
+    <color name="accent_color">#7986CB</color>
+    <color name="red">#FF5252</color>
+    <color name="gray_divider">#424242</color>
+    <color name="rating_color">#FFCA28</color>
+    <color name="rating_background">#424242</color>
+    <color name="favorite_icon_tint">#F06292</color>
+    <color name="favorite_red">#FF5252</color>
+    <color name="light_gray">#424242</color>
+</resources>

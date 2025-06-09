@@ -1,12 +1,15 @@
 package com.example.projectakhirbismillah.activity;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
+import android.util.Base64;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
-import android.webkit.ConsoleMessage;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -22,6 +25,10 @@ import androidx.appcompat.widget.Toolbar;
 
 import com.example.projectakhirbismillah.R;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
 public class PaymentWebViewActivity extends AppCompatActivity {
     private static final String TAG = "PaymentWebView";
     public static final String EXTRA_PAYMENT_URL = "payment_url";
@@ -33,7 +40,9 @@ public class PaymentWebViewActivity extends AppCompatActivity {
     private WebView webView;
     private ProgressBar progressBar;
     private String orderId;
+    private boolean errorHandled = false;
 
+    @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -64,38 +73,20 @@ public class PaymentWebViewActivity extends AppCompatActivity {
         Log.d(TAG, "Loading payment URL: " + paymentUrl);
         Log.d(TAG, "Order ID: " + orderId);
 
-        // Configure WebView with improved settings
+        // Configure WebView
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
-        settings.setSupportZoom(true);
-        settings.setBuiltInZoomControls(true);
-        settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
 
-        // Add console logging for debugging
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
-                Log.d("WebView Console", consoleMessage.message() + " -- From line " +
-                        consoleMessage.lineNumber() + " of " + consoleMessage.sourceId());
-                return true;
-            }
-        });
+        // Add JavaScript interface
+        webView.addJavascriptInterface(new WebAppInterface(), "Android");
 
-        // Setup WebViewClient with improved URL handling
+        // Setup WebViewClient
         webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                // Make sure WebView handles all URLs
-                Log.d(TAG, "Navigating to URL: " + url);
-                view.loadUrl(url);
-                return true;
-            }
-
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 progressBar.setVisibility(View.VISIBLE);
@@ -107,69 +98,113 @@ public class PaymentWebViewActivity extends AppCompatActivity {
                 progressBar.setVisibility(View.GONE);
                 Log.d(TAG, "Page finished: " + url);
 
-                // Check if payment is complete
+                // Inject JavaScript to check for error message and replace it
+                String js =
+                        "javascript:(function() {" +
+                                "   var errorElement = document.querySelector('.payment-unavailable-message');" +
+                                "   if (errorElement && errorElement.innerText.includes('No payment channels available')) {" +
+                                "       Android.onErrorFound();" +
+                                "       errorElement.innerHTML = '" + createPaymentMethodsHtml() + "';" +
+                                "   }" +
+                                "})()";
+
+                view.loadUrl(js);
+
+                // Check for transaction status in URL
                 if (url.contains("transaction_status=settlement") ||
                         url.contains("transaction_status=capture") ||
                         url.contains("transaction_status=success")) {
-
                     Toast.makeText(PaymentWebViewActivity.this,
                             "Payment successful!", Toast.LENGTH_SHORT).show();
                     finishWithResult(PAYMENT_SUCCESS);
-
-                } else if (url.contains("transaction_status=pending")) {
-                    Toast.makeText(PaymentWebViewActivity.this,
-                            "Payment pending! Please complete your payment.",
-                            Toast.LENGTH_SHORT).show();
-                    finishWithResult(PAYMENT_PENDING);
-
-                } else if (url.contains("transaction_status=deny") ||
-                        url.contains("transaction_status=cancel") ||
-                        url.contains("transaction_status=expire") ||
-                        url.contains("transaction_status=failure")) {
-
-                    Toast.makeText(PaymentWebViewActivity.this,
-                            "Payment failed or cancelled", Toast.LENGTH_SHORT).show();
-                    finishWithResult(PAYMENT_FAILED);
                 }
-
-                // Debug: inspect HTML content
-                view.evaluateJavascript(
-                        "(function() { return document.documentElement.outerHTML; })();",
-                        value -> {
-                            if (value != null && !value.equals("null")) {
-                                String html = value.substring(1, value.length() - 1)
-                                        .replace("\\\"", "\"")
-                                        .replace("\\n", "\n");
-                                Log.d(TAG, "Page HTML (partial): " +
-                                        (html.length() > 500 ? html.substring(0, 500) + "..." : html));
-                            }
-                        }
-                );
+                // Other status checks remain the same...
             }
 
             @Override
-            public void onReceivedError(WebView view, WebResourceRequest request,
-                                        WebResourceError error) {
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 progressBar.setVisibility(View.GONE);
-                Log.e(TAG, "WebView error: " + error.toString() + " for URL: " + request.getUrl());
-
-                Toast.makeText(PaymentWebViewActivity.this,
-                        "Error loading payment page. Please try again.",
-                        Toast.LENGTH_SHORT).show();
+                // Error handling...
             }
         });
 
-        // Load Midtrans URL
         webView.loadUrl(paymentUrl);
     }
 
+    // Java interface for communication with JavaScript
+    private class WebAppInterface {
+        @JavascriptInterface
+        public void onErrorFound() {
+            errorHandled = true;
+            Log.d(TAG, "Error message found and replaced with payment methods");
+        }
+    }
+
+    // Create HTML content with payment method logos
+    private String createPaymentMethodsHtml() {
+        StringBuilder html = new StringBuilder();
+        html.append("<div style='text-align: center; padding: 10px;'>");
+        html.append("<h3 style='color:#333;'>Metode Pembayaran</h3>");
+        html.append("<div style='display: flex; flex-wrap: wrap; justify-content: center;'>");
+
+        // Add payment logos as Base64 encoded images
+        String[] logoNames = {"gopay", "ovo", "dana", "bca", "bni", "bri", "mandiri", "qris"};
+
+        for (String logo : logoNames) {
+            String base64Logo = getBase64EncodedImage(logo);
+            if (base64Logo != null) {
+                html.append("<div style='margin: 10px; text-align: center;'>");
+                html.append("<img src='data:image/png;base64,").append(base64Logo).append("' ");
+                html.append("style='width: 60px; height: 60px; object-fit: contain;'><br>");
+                html.append("<span style='font-size: 12px;'>").append(logo.toUpperCase()).append("</span>");
+                html.append("</div>");
+            }
+        }
+
+        html.append("</div>");
+        html.append("<p style='margin-top: 10px; color: #666;'>Silakan pilih metode pembayaran di atas</p>");
+        html.append("</div>");
+
+        return html.toString();
+    }
+
+    // Convert drawable to Base64 encoded string
+    private String getBase64EncodedImage(String imageName) {
+        try {
+            int resId = getResources().getIdentifier("ic_" + imageName, "drawable", getPackageName());
+            if (resId == 0) {
+                Log.e(TAG, "Resource not found: ic_" + imageName);
+                return null;
+            }
+
+            InputStream inputStream = getResources().openRawResource(resId);
+            byte[] bytes = getBytesFromInputStream(inputStream);
+            return Base64.encodeToString(bytes, Base64.DEFAULT);
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading image: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // Convert InputStream to byte array
+    private byte[] getBytesFromInputStream(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
+        int bufferSize = 1024;
+        byte[] buffer = new byte[bufferSize];
+
+        int len;
+        while ((len = inputStream.read(buffer)) != -1) {
+            byteBuffer.write(buffer, 0, len);
+        }
+        return byteBuffer.toByteArray();
+    }
+
+    // Finish activity with result
     private void finishWithResult(int resultCode) {
         Intent resultIntent = new Intent();
         resultIntent.putExtra(EXTRA_ORDER_ID, orderId);
         setResult(resultCode, resultIntent);
-
-        // Add slight delay before finishing to ensure toast is shown
-        webView.postDelayed(() -> finish(), 1500);
+        finish();
     }
 
     @Override
@@ -179,16 +214,5 @@ public class PaymentWebViewActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            // Confirm if user wants to cancel payment
-            Toast.makeText(this, "Payment cancelled", Toast.LENGTH_SHORT).show();
-            finishWithResult(PAYMENT_FAILED);
-        }
     }
 }

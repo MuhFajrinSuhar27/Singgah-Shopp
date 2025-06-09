@@ -1,8 +1,13 @@
 package com.example.projectakhirbismillah.model;
 
+import java.io.Serializable;
 import java.util.List;
+import java.util.Objects;
 
-public class Product {
+public class Product implements Serializable {
+    // Tambahkan serialVersionUID untuk versioning
+    private static final long serialVersionUID = 1L;
+
     private int id;
     private String title;
     private String description;
@@ -15,6 +20,63 @@ public class Product {
     private String thumbnail;
     private List<String> images;
 
+    // Constructor default (jika diperlukan)
+    public Product() {
+        // Default constructor
+    }
+
+    // Copy constructor
+    public Product(Product other) {
+        this.id = other.id;
+        this.title = other.title;
+        this.description = other.description;
+        this.price = other.price;
+        this.discountPercentage = other.discountPercentage;
+        this.rating = other.rating;
+        this.stock = other.stock;
+        this.brand = other.brand;
+        this.category = other.category;
+        this.thumbnail = other.thumbnail;
+        this.images = other.images;
+    }
+
+    public Product(int id, String title, String description, double price, double discountPercentage, double rating, int stock, String brand, String category, String thumbnail, String image) {
+        this.id = id;
+        this.title = title;
+        this.description = description;
+        this.price = price;
+        this.discountPercentage = discountPercentage;
+        this.rating = rating;
+        this.stock = stock;
+        this.brand = brand;
+        this.category = category;
+        this.thumbnail = thumbnail;
+        // Set images jika diperlukan
+    }
+
+    // TAMBAHAN: Override equals dan hashCode untuk membandingkan objek Product
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Product product = (Product) obj;
+        return getId() == product.getId();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getId());
+    }
+
+    // Helper method untuk mengatasi error di ProductDetailActivity
+    public String getImage() {
+        if (images != null && !images.isEmpty()) {
+            return images.get(0);
+        }
+        return thumbnail;
+    }
+
+    // Semua getter dan setter yang sudah ada
     public int getId() {
         return id;
     }

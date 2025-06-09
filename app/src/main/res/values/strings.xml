@@ -30,4 +30,5 @@
     <string name="sign_in">Sign In</string>
     <string name="terms_and_conditions">I agree to the Terms and Conditions</string>
     <string name="or_sign_in_with">Or sign in with</string>
+    <string name="title_payment_failed">Pembayaran Gagal</string>
 </resources>
