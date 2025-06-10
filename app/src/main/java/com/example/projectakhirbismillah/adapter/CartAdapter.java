@@ -57,31 +57,31 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.CartViewHolder
             Log.e(TAG, "Invalid position: " + position + ", size: " + cartItems.size());
             return;
         }
-        
+
         CartItem cartItem = cartItems.get(position);
         Product product = cartItem.getProduct();
-        
+
         // Set product name
         if (holder.titleTextView != null) {
             holder.titleTextView.setText(product.getTitle());
         }
-        
+
         // Format price in Rupiah
         if (holder.priceTextView != null) {
             holder.priceTextView.setText(CurrencyUtil.formatToRupiah(product.getPrice()));
         }
-        
+
         // Set quantity
         if (holder.quantityTextView != null) {
             holder.quantityTextView.setText(String.valueOf(cartItem.getQuantity()));
         }
-        
+
         // Calculate and set total price
         if (holder.totalPriceTextView != null) {
             double totalPrice = product.getPrice() * cartItem.getQuantity();
             holder.totalPriceTextView.setText("Total: " + CurrencyUtil.formatToRupiah(totalPrice));
         }
-        
+
         // Load product image
         if (holder.productImageView != null) {
             Glide.with(context)
@@ -90,55 +90,55 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.CartViewHolder
                     .error(R.drawable.error_image)
                     .into(holder.productImageView);
         }
-        
+
         // Set increment button click listener
         if (holder.increaseButton != null) {
             holder.increaseButton.setOnClickListener(v -> {
                 int adapterPosition = holder.getAdapterPosition();
                 if (adapterPosition == RecyclerView.NO_POSITION) return;
-                
+
                 int currentQuantity = cartItem.getQuantity();
                 cartItem.setQuantity(currentQuantity + 1);
                 cartManager.updateItemQuantity(product, currentQuantity + 1);
-                
+
                 if (holder.quantityTextView != null) {
                     holder.quantityTextView.setText(String.valueOf(cartItem.getQuantity()));
                 }
-                
+
                 // Calculate and set new total price
                 if (holder.totalPriceTextView != null) {
                     double newTotalPrice = product.getPrice() * cartItem.getQuantity();
                     holder.totalPriceTextView.setText("Total: " + CurrencyUtil.formatToRupiah(newTotalPrice));
                 }
-                
+
                 // Notify listener
                 if (listener != null) {
                     listener.onQuantityChanged();
                 }
             });
         }
-        
+
         // Set decrement button click listener
         if (holder.decreaseButton != null) {
             holder.decreaseButton.setOnClickListener(v -> {
                 int adapterPosition = holder.getAdapterPosition();
                 if (adapterPosition == RecyclerView.NO_POSITION) return;
-                
+
                 int currentQuantity = cartItem.getQuantity();
                 if (currentQuantity > 1) {
                     cartItem.setQuantity(currentQuantity - 1);
                     cartManager.updateItemQuantity(product, currentQuantity - 1);
-                    
+
                     if (holder.quantityTextView != null) {
                         holder.quantityTextView.setText(String.valueOf(cartItem.getQuantity()));
                     }
-                    
+
                     // Calculate and set new total price
                     if (holder.totalPriceTextView != null) {
                         double newTotalPrice = product.getPrice() * cartItem.getQuantity();
                         holder.totalPriceTextView.setText("Total: " + CurrencyUtil.formatToRupiah(newTotalPrice));
                     }
-                    
+
                     // Notify listener
                     if (listener != null) {
                         listener.onQuantityChanged();
@@ -146,45 +146,45 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.CartViewHolder
                 }
             });
         }
-        
+
         // Set remove button click listener - PERBAIKAN DI SINI
-    if (holder.removeButton != null) {
-    holder.removeButton.setOnClickListener(v -> {
-        try {
-            // Get current position again to avoid stale references
-            int adapterPosition = holder.getAdapterPosition();
-            if (adapterPosition == RecyclerView.NO_POSITION) {
-                Log.d(TAG, "Cannot remove item: no position available");
-                return;
-            }
-            
-            // TAMBAHAN PENGECEKAN BARU: pastikan cartItems tidak null dan adapterPosition valid
-            if (cartItems == null || adapterPosition >= cartItems.size()) {
-                Log.e(TAG, "Cannot remove item: invalid state - cartItems is null or position invalid");
-                return;
-            }
-            
-            // Ambil produk sebelum menghapus dari list
-            Product productToRemove = cartItems.get(adapterPosition).getProduct();
-            
-            // Hapus dari list lokal dulu
-            cartItems.remove(adapterPosition);
-            
-            // Beri tahu adapter (ini akan memperbaharui UI)
-            notifyItemRemoved(adapterPosition);
-            
-            // Baru hapus dari CartManager (ini menghindari race condition)
-            cartManager.removeFromCart(productToRemove);
-            
-            // Beri tahu listener
-            if (listener != null) {
-                listener.onItemRemoved();
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error removing item from cart: " + e.getMessage(), e);
+        if (holder.removeButton != null) {
+            holder.removeButton.setOnClickListener(v -> {
+                try {
+                    // Get current position again to avoid stale references
+                    int adapterPosition = holder.getAdapterPosition();
+                    if (adapterPosition == RecyclerView.NO_POSITION) {
+                        Log.d(TAG, "Cannot remove item: no position available");
+                        return;
+                    }
+
+                    // TAMBAHAN PENGECEKAN BARU: pastikan cartItems tidak null dan adapterPosition valid
+                    if (cartItems == null || adapterPosition >= cartItems.size()) {
+                        Log.e(TAG, "Cannot remove item: invalid state - cartItems is null or position invalid");
+                        return;
+                    }
+
+                    // Ambil produk sebelum menghapus dari list
+                    Product productToRemove = cartItems.get(adapterPosition).getProduct();
+
+                    // Hapus dari list lokal dulu
+                    cartItems.remove(adapterPosition);
+
+                    // Beri tahu adapter (ini akan memperbaharui UI)
+                    notifyItemRemoved(adapterPosition);
+
+                    // Baru hapus dari CartManager (ini menghindari race condition)
+                    cartManager.removeFromCart(productToRemove);
+
+                    // Beri tahu listener
+                    if (listener != null) {
+                        listener.onItemRemoved();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error removing item from cart: " + e.getMessage(), e);
+                }
+            });
         }
-    });
-}
     }
 
     @Override
@@ -201,7 +201,7 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.CartViewHolder
         ImageButton increaseButton;
         ImageButton decreaseButton;
         ImageButton removeButton;
-        
+
         public CartViewHolder(@NonNull View itemView) {
             super(itemView);
             removeButton = itemView.findViewById(R.id.btn_remove);

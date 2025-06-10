@@ -156,7 +156,7 @@ public class CartManager {
         Gson gson = new Gson();
         String json = sharedPreferences.getString(CART_ITEMS_KEY, null);
         Type type = new TypeToken<ArrayList<CartItem>>() {}.getType();
-        
+
         if (json != null) {
             cartItems = gson.fromJson(json, type);
         } else {

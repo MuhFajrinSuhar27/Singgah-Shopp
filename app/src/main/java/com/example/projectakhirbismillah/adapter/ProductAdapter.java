@@ -192,27 +192,27 @@ public class ProductAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private void toggleFavorite(ImageButton favoriteButton, Product product) {
         try {
             Log.d(TAG, "Toggle favorite for: " + product.getTitle() + " (ID: " + product.getId() + ")");
-            
+
             boolean currentState = favoriteManager.isFavorite(product);
             Log.d(TAG, "Current favorite state: " + currentState);
-            
+
             if (currentState) {
                 favoriteManager.removeFromFavorites(product);
             } else {
                 favoriteManager.addToFavorites(product);
             }
-            
+
             // Verify state changed
             boolean newState = favoriteManager.isFavorite(product);
             Log.d(TAG, "New favorite state: " + newState + " (was: " + currentState + ")");
-            
+
             // Show toast feedback
             if (newState) {
                 Toast.makeText(context, product.getTitle() + " added to favorites", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(context, product.getTitle() + " removed from favorites", Toast.LENGTH_SHORT).show();
             }
-            
+
             // Update button appearance
             updateFavoriteButton(favoriteButton, product);
         } catch (Exception e) {
@@ -247,17 +247,17 @@ public class ProductAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public void updateProducts(List<Product> newProducts) {
         // TAMBAHKAN DEBUG LOG
         Log.d("ProductAdapter", "Updating products: " + newProducts.size() + " items");
-        
+
         // PENTING: Gunakan REFERENSI YANG SAMA dari List products
         this.products.clear();
-        
+
         if (newProducts != null) {
             this.products.addAll(newProducts);
         }
-        
+
         // NOTIFIKASI DENGAN TEPAT
         notifyDataSetChanged();
-        
+
         // TAMBAHKAN LOG KONFIRMASI
         Log.d("ProductAdapter", "Products updated, new size: " + this.products.size());
     }

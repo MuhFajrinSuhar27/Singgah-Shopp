@@ -150,17 +150,17 @@ public class FavoriteManager {
         }
     }
 
-   public boolean isFavorite(Product product) {
-    if (product == null) return false;
-    
-    for (Product p : favoriteProducts) {
-        // Gunakan equals() yang sudah dioverride di model Product
-        if (p != null && p.getId() == product.getId()) {
-            return true;
+    public boolean isFavorite(Product product) {
+        if (product == null) return false;
+
+        for (Product p : favoriteProducts) {
+            // Gunakan equals() yang sudah dioverride di model Product
+            if (p != null && p.getId() == product.getId()) {
+                return true;
+            }
         }
+        return false;
     }
-    return false;
-}
 
     private void saveFavorites() {
         try {
@@ -226,7 +226,7 @@ public class FavoriteManager {
         }
     }
 
-    
+
     public void printFavoritesStatus() {
         Log.d(TAG, "=== FAVORITES STATUS ===");
         Log.d(TAG, "Total favorites: " + favoriteProducts.size());

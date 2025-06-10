@@ -71,24 +71,24 @@ public class FavoriteFragment extends Fragment implements FavoriteManager.Favori
     public void onResume() {
         super.onResume();
         Log.d(TAG, "onResume: Re-initializing FavoriteManager");
-        
+
         // Force reload data untuk memastikan sinkronisasi terbaru
         favoriteManager.initialize(requireContext());
-        
+
         // Dapatkan data favorit dan log
         List<Product> currentFavorites = favoriteManager.getFavoriteProducts();
-        Log.d(TAG, "onResume: Current favorites count: " + 
-              (currentFavorites != null ? currentFavorites.size() : 0));
-        
+        Log.d(TAG, "onResume: Current favorites count: " +
+                (currentFavorites != null ? currentFavorites.size() : 0));
+
         if (currentFavorites != null && currentFavorites.size() > 0) {
             for (Product p : currentFavorites) {
                 Log.d(TAG, "Favorite product: " + p.getId() + " - " + p.getTitle());
             }
         }
-        
+
         // Register as listener
         favoriteManager.addListener(this);
-        
+
         // PENTING: Perbarui UI dengan data favorit terbaru SECARA LANGSUNG
         if (productAdapter != null && currentFavorites != null) {
             productAdapter.updateProducts(new ArrayList<>(currentFavorites));
@@ -145,14 +145,14 @@ public class FavoriteFragment extends Fragment implements FavoriteManager.Favori
     private void showFavoritesList(List<Product> favoriteProducts) {
         try {
             Log.d(TAG, "Showing favorites list with " + favoriteProducts.size() + " items");
-            
+
             if (emptyFavoritesLayout != null) {
                 emptyFavoritesLayout.setVisibility(View.GONE);
             }
-            
+
             if (recyclerFavorites != null) {
                 recyclerFavorites.setVisibility(View.VISIBLE);
-                
+
                 if (productAdapter == null) {
                     productAdapter = new ProductAdapter(getContext(), favoriteProducts, ProductAdapter.VIEW_TYPE_CARD);
                     recyclerFavorites.setAdapter(productAdapter);

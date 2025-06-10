@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -41,12 +42,14 @@ import com.example.projectakhirbismillah.util.FavoriteManager;
 import com.example.projectakhirbismillah.util.NetworkStateManager;
 import com.example.projectakhirbismillah.util.ThemeHelper;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 import retrofit2.Call;
-import retrofit2.Callback;
 import retrofit2.Response;
 
 public class HomeFragment extends Fragment implements CategoryAdapter.OnCategoryClickListener {
@@ -62,8 +65,11 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
     private List<CategoryItem> categoryItems = new ArrayList<>();
     private ProductAdapter productAdapter;
     private CategoryAdapter categoryAdapter;
-    private Handler autoScrollHandler;
+
+    // Initialize Handler dan Runnable di awal - bukan null
+    private Handler autoScrollHandler = new Handler(Looper.getMainLooper());
     private Runnable autoScrollRunnable;
+
     private int currentBannerPosition = 0;
     private boolean isFragmentAttached = false;
     private Call<ProductResponse> apiCall;
@@ -79,6 +85,10 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
     private Button buttonRefresh;
     private boolean isLoading = false;
 
+    // Thread management
+    private final ExecutorService executor = Executors.newCachedThreadPool();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
     // Kategori yang ingin ditampilkan
     private final String[] categories = {
             "smartphones",     // Phone
@@ -86,6 +96,27 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
             "mens-shoes",      // Shoes
             "fragrances"       // Parfum
     };
+
+    // Initialize autoScrollRunnable in constructor or init block
+    {
+        autoScrollRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (bannerViewPager != null) {
+                    if (currentBannerPosition == (bannerItems != null ? bannerItems.size() : 0) - 1) {
+                        bannerViewPager.setCurrentItem(0);
+                    } else {
+                        bannerViewPager.setCurrentItem(currentBannerPosition + 1);
+                    }
+                }
+
+                // Pastikan handler dan fragment masih aktif sebelum posting kembali
+                if (autoScrollHandler != null && isFragmentAttached) {
+                    autoScrollHandler.postDelayed(this, 3000);
+                }
+            }
+        };
+    }
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -114,8 +145,15 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
         buttonRefresh = networkErrorLayout.findViewById(R.id.button_refresh);
         buttonRefresh.setOnClickListener(v -> retryLoading());
 
-        // Initialize FavoriteManager
-        FavoriteManager.getInstance().initialize(requireContext());
+        // Initialize FavoriteManager in background thread
+        executor.execute(() -> {
+            try {
+                FavoriteManager.getInstance().initialize(requireContext());
+                Log.d(TAG, "FavoriteManager initialized in background thread");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing FavoriteManager: " + e.getMessage());
+            }
+        });
 
         return view;
     }
@@ -124,37 +162,68 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Inisialisasi bannerItems untuk mencegah NPE
+        bannerItems = new ArrayList<>();
+
         // Initialize views
         bannerViewPager = view.findViewById(R.id.banner_viewpager);
         indicatorContainer = view.findViewById(R.id.indicator_container);
         textViewAll = view.findViewById(R.id.text_view_all);
         recyclerCategories = view.findViewById(R.id.recycler_categories);
 
-        // Setup carousel banner
-        setupBannerCarousel();
+        // Setup UI components in background thread
+        executor.execute(() -> {
+            try {
+                // Operasi yang dapat dilakukan di background
+                final List<BannerItem> bannerItemsBackground = createBannerItems();
+                final List<CategoryItem> categoryItemsBackground = createCategoryItemsInBackground();
 
-        // Create and add theme toggle button without trying to modify the NestedScrollView
-        addThemeToggleButton();
+                // Update UI di main thread dengan pengecekan isAdded
+                mainHandler.post(() -> {
+                    // Pastikan fragment masih attached ke context
+                    if (!isAdded()) {
+                        Log.d(TAG, "Fragment not attached. Skipping UI updates.");
+                        return;
+                    }
 
-        // Setup categories
-        setupCategories();
+                    try {
+                        // Setup carousel banner dengan data dari background thread
+                        setupBannerCarousel(bannerItemsBackground);
 
-        // Setup products grid
-        setupProductsGrid();
+                        // Create and add theme toggle button
+                        addThemeToggleButton();
 
-        // Set click listener for "View all"
-        textViewAll.setOnClickListener(v -> {
-            Toast.makeText(getContext(), "View all products", Toast.LENGTH_SHORT).show();
+                        // Setup categories dengan data dari background thread
+                        setupCategories(categoryItemsBackground);
+
+                        // Setup products grid
+                        setupProductsGrid();
+
+                        // Set click listener for "View all"
+                        textViewAll.setOnClickListener(v -> {
+                            Toast.makeText(getContext(), "View all products", Toast.LENGTH_SHORT).show();
+                        });
+
+                        // Fetch products from specific categories
+                        fetchAllProducts();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error in UI updates: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error in background processing: " + e.getMessage());
+                e.printStackTrace();
+            }
         });
-
-        // Fetch products from specific categories
-        fetchAllProducts();
     }
 
     /**
      * Menambahkan tombol toggle theme dengan cara yang aman
      */
     private void addThemeToggleButton() {
+        if (!isAdded() || mainLinearLayout == null) return;
+
         // Cari LinearLayout yang berisi categories section (judul "Categories")
         View categoriesHeaderView = null;
 
@@ -176,13 +245,13 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
         }
 
         // Buat container baru untuk tombol toggle
-        RelativeLayout toggleContainer = new RelativeLayout(requireContext());
+        RelativeLayout toggleContainer = new RelativeLayout(getContext());
         LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
 
         // Buat tombol toggle
-        themeToggleButton = new ImageButton(requireContext());
+        themeToggleButton = new ImageButton(getContext());
         themeToggleButton.setId(View.generateViewId());
         themeToggleButton.setBackgroundResource(R.drawable.circle_button_background);
         themeToggleButton.setPadding(16, 16, 16, 16);
@@ -213,7 +282,9 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
      * Update the theme toggle icon based on current theme
      */
     private void updateThemeToggleIcon() {
-        boolean isDarkMode = ThemeHelper.isDarkMode(requireContext());
+        if (themeToggleButton == null || !isAdded()) return;
+
+        boolean isDarkMode = ThemeHelper.isDarkMode(getContext());
         themeToggleButton.setImageResource(isDarkMode ?
                 R.drawable.ic_light_mode : R.drawable.ic_dark_mode);
     }
@@ -222,35 +293,43 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
      * Toggle between light and dark theme
      */
     private void toggleTheme() {
+        if (!isAdded()) return;
+
         Log.d(TAG, "Toggle theme clicked. Current dark mode: " + ThemeHelper.isDarkMode(requireContext()));
-        
-        // Toggle tema
-        ThemeHelper.toggleTheme(requireContext());
-        
-        // Update ikon
-        updateThemeToggleIcon();
-        
-        // PENTING: Gunakan cara yang lebih kuat untuk restart activity
-        Log.d(TAG, "Restarting activity to apply new theme");
-        
-        // Gunakan Handler untuk delay sedikit agar SharedPreferences tersimpan
-        new Handler().postDelayed(() -> {
+
+        try {
+            // Simpan dan terapkan tema baru
+            boolean isDarkMode = ThemeHelper.isDarkMode(requireContext());
+            int newThemeMode = isDarkMode ? ThemeHelper.MODE_LIGHT : ThemeHelper.MODE_DARK;
+
+            // Simpan preferensi tema
+            ThemeHelper.saveThemeMode(requireContext(), newThemeMode);
+
+            // Terapkan tema baru
+            ThemeHelper.applyTheme(newThemeMode);
+
+            // Update icon toggle tema
+            updateThemeToggleIcon();
+
+            // Refresh UI dengan rekreasi activity
             if (getActivity() != null) {
-                // Cara lebih pasti untuk restart activity dan menerapkan tema baru
-                Intent intent = new Intent(getActivity(), MainActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
-                getActivity().finish();
+                Log.d(TAG, "Recreating activity to apply theme changes");
+                getActivity().recreate();
             }
-        }, 150); // Delay sedikit lebih lama untuk memastikan perubahan tema tersimpan
+        } catch (Exception e) {
+            Log.e(TAG, "Error toggling theme: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void setupProductsGrid() {
+        if (!isAdded()) return;
+
         // Setup RecyclerView with GridLayoutManager for item_product.xml
         recyclerProducts.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
         // Initialize adapter with VIEW_TYPE_CARD for item_product.xml
-        productAdapter = new ProductAdapter(requireContext(), new ArrayList<>(), ProductAdapter.VIEW_TYPE_CARD);
+        productAdapter = new ProductAdapter(getContext(), new ArrayList<>(), ProductAdapter.VIEW_TYPE_CARD);
         recyclerProducts.setAdapter(productAdapter);
     }
 
@@ -271,37 +350,34 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
         }
     }
 
-    private void setupBannerCarousel() {
-        // Create banner items list
-        bannerItems = createBannerItems();
+    private void setupBannerCarousel(List<BannerItem> bannerItems) {
+        if (!isAdded() || bannerViewPager == null) {
+            Log.d(TAG, "Cannot setup banner carousel: Fragment not attached or ViewPager is null");
+            return;
+        }
 
-        // Initialize banner adapter
-        BannerAdapter bannerAdapter = new BannerAdapter(requireContext(), bannerItems);
-        bannerViewPager.setAdapter(bannerAdapter);
+        // Set banner items list
+        this.bannerItems = bannerItems;
 
-        setupIndicators();
+        try {
+            // Initialize banner adapter
+            BannerAdapter bannerAdapter = new BannerAdapter(getContext(), bannerItems);
+            bannerViewPager.setAdapter(bannerAdapter);
 
-        bannerViewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
-            @Override
-            public void onPageSelected(int position) {
-                currentBannerPosition = position;
-                updateIndicators(position);
-                super.onPageSelected(position);
-            }
-        });
+            setupIndicators();
 
-        autoScrollHandler = new Handler();
-        autoScrollRunnable = new Runnable() {
-            @Override
-            public void run() {
-                if (currentBannerPosition == bannerItems.size() - 1) {
-                    bannerViewPager.setCurrentItem(0);
-                } else {
-                    bannerViewPager.setCurrentItem(currentBannerPosition + 1);
+            bannerViewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+                @Override
+                public void onPageSelected(int position) {
+                    currentBannerPosition = position;
+                    updateIndicators(position);
+                    super.onPageSelected(position);
                 }
-                autoScrollHandler.postDelayed(this, 3000);
-            }
-        };
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up banner carousel: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private List<BannerItem> createBannerItems() {
@@ -314,59 +390,86 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
     }
 
     private void setupIndicators() {
-        ImageView[] indicators = new ImageView[bannerItems.size()];
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.setMargins(8, 0, 8, 0);
+        // Pastikan container dan bannerItems ada dan fragment masih attached
+        if (!isAdded() || indicatorContainer == null || bannerItems == null) return;
 
-        for (int i = 0; i < indicators.length; i++) {
-            indicators[i] = new ImageView(requireContext());
-            indicators[i].setImageResource(R.drawable.indicator_inactive);
-            indicators[i].setLayoutParams(params);
-            indicatorContainer.addView(indicators[i]);
+        try {
+            // Clear previous indicators
+            indicatorContainer.removeAllViews();
+
+            ImageView[] indicators = new ImageView[bannerItems.size()];
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            params.setMargins(8, 0, 8, 0);
+
+            for (int i = 0; i < indicators.length; i++) {
+                indicators[i] = new ImageView(getContext());
+                indicators[i].setImageResource(R.drawable.indicator_inactive);
+                indicators[i].setLayoutParams(params);
+                indicatorContainer.addView(indicators[i]);
+            }
+
+            updateIndicators(0);
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up indicators: " + e.getMessage());
+            e.printStackTrace();
         }
-
-        updateIndicators(0);
     }
 
     private void updateIndicators(int position) {
-        int childCount = indicatorContainer.getChildCount();
-        for (int i = 0; i < childCount; i++) {
-            ImageView imageView = (ImageView) indicatorContainer.getChildAt(i);
-            if (i == position) {
-                imageView.setImageResource(R.drawable.indicator_active);
-            } else {
-                imageView.setImageResource(R.drawable.indicator_inactive);
+        if (!isAdded() || indicatorContainer == null) return;
+
+        try {
+            int childCount = indicatorContainer.getChildCount();
+            for (int i = 0; i < childCount; i++) {
+                ImageView imageView = (ImageView) indicatorContainer.getChildAt(i);
+                if (i == position) {
+                    imageView.setImageResource(R.drawable.indicator_active);
+                } else {
+                    imageView.setImageResource(R.drawable.indicator_inactive);
+                }
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating indicators: " + e.getMessage());
         }
     }
 
-    private void setupCategories() {
-        // Initialize categories list
-        createCategoryItems();
+    private void setupCategories(List<CategoryItem> categoryItems) {
+        if (!isAdded() || recyclerCategories == null) return;
 
-        // Setup RecyclerView for categories
-        LinearLayoutManager layoutManager = new LinearLayoutManager(
-                getContext(), LinearLayoutManager.HORIZONTAL, false);
-        recyclerCategories.setLayoutManager(layoutManager);
+        try {
+            // Use the provided category items
+            this.categoryItems = categoryItems;
 
-        // Create and set adapter
-        categoryAdapter = new CategoryAdapter(requireContext(), categoryItems, this);
-        recyclerCategories.setAdapter(categoryAdapter);
+            // Setup RecyclerView for categories
+            LinearLayoutManager layoutManager = new LinearLayoutManager(
+                    getContext(), LinearLayoutManager.HORIZONTAL, false);
+            recyclerCategories.setLayoutManager(layoutManager);
+
+            // Create and set adapter
+            categoryAdapter = new CategoryAdapter(getContext(), categoryItems, this);
+            recyclerCategories.setAdapter(categoryAdapter);
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up categories: " + e.getMessage());
+        }
     }
 
-    private void createCategoryItems() {
-        categoryItems.clear();
+    private List<CategoryItem> createCategoryItemsInBackground() {
+        List<CategoryItem> items = new ArrayList<>();
 
         // Add all categories
-        categoryItems.add(new CategoryItem("all", "All", R.drawable.ic_category_all));
-        categoryItems.add(new CategoryItem("smartphones", "Phones", R.drawable.smartphone));
-        categoryItems.add(new CategoryItem("womens-dresses", "Fashion", R.drawable.fashionn));
-        categoryItems.add(new CategoryItem("mens-shoes", "Shoes", R.drawable.shoes));
-        categoryItems.add(new CategoryItem("fragrances", "Perfumes", R.drawable.perfume));
+        items.add(new CategoryItem("all", "All", R.drawable.ic_category_all));
+        items.add(new CategoryItem("smartphones", "Phones", R.drawable.smartphone));
+        items.add(new CategoryItem("womens-dresses", "Fashion", R.drawable.fashionn));
+        items.add(new CategoryItem("mens-shoes", "Shoes", R.drawable.shoes));
+        items.add(new CategoryItem("fragrances", "Perfumes", R.drawable.perfume));
+
+        return items;
     }
 
     private void fetchAllProducts() {
+        if (!isAdded()) return;
+
         // Reset product list
         allProducts.clear();
         currentCategoryIndex = 0;
@@ -378,75 +481,113 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
         }
         hideNetworkError();
 
-        // Check for network connectivity
-        if (!isNetworkAvailable()) {
-            showNetworkError();
-            isLoading = false;
-            return;
-        }
+        // Check for network connectivity in background thread
+        executor.execute(() -> {
+            try {
+                final boolean networkAvailable = isNetworkAvailable();
 
-        // Start fetching products from first category
-        fetchProductsByCategory(categories[currentCategoryIndex]);
+                // Kembali ke UI thread untuk update UI
+                mainHandler.post(() -> {
+                    if (!isAdded()) return;
+
+                    if (!networkAvailable) {
+                        showNetworkError();
+                        isLoading = false;
+                        return;
+                    }
+
+                    // Start fetching products from first category
+                    fetchProductsByCategory(categories[currentCategoryIndex]);
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error checking network: " + e.getMessage());
+                mainHandler.post(this::showNetworkError);
+            }
+        });
     }
 
     private void fetchProductsByCategory(String category) {
-        if (!isFragmentAttached) return;
+        if (!isFragmentAttached || !isAdded()) return;
 
         Log.d(TAG, "Fetching products for category: " + category);
 
-        // Double-check network connectivity before API call
-        if (!isNetworkAvailable()) {
-            showNetworkError();
-            isLoading = false;
-            return;
-        }
-
-        ApiService apiService = RetrofitClient.getClient().create(ApiService.class);
-        apiCall = apiService.getProductsByCategory(category);
-
-        apiCall.enqueue(new Callback<ProductResponse>() {
-            @Override
-            public void onResponse(Call<ProductResponse> call, Response<ProductResponse> response) {
-                if (!isFragmentAttached) {
-                    Log.d(TAG, "Fragment is detached, ignoring API response");
+        // Execute network call in background thread
+        executor.execute(() -> {
+            try {
+                // Check network again in background thread
+                if (!isNetworkAvailable()) {
+                    mainHandler.post(() -> {
+                        if (!isAdded()) return;
+                        showNetworkError();
+                        isLoading = false;
+                    });
                     return;
                 }
 
-                if (response.isSuccessful() && response.body() != null) {
-                    List<Product> categoryProducts = response.body().getProducts();
-                    Log.d(TAG, "Received " + categoryProducts.size() + " products for " + category);
+                ApiService apiService = RetrofitClient.getClient().create(ApiService.class);
+                apiCall = apiService.getProductsByCategory(category);
 
-                    // Add products from this category to the list
-                    allProducts.addAll(categoryProducts);
+                // Synchronous call in background thread
+                Response<ProductResponse> response = apiCall.execute();
 
-                    // Fetch next category or update UI if all categories are done
-                    fetchNextCategoryOrUpdate();
-                } else {
-                    Log.e(TAG, "Failed to fetch products for category: " + category);
-                    fetchNextCategoryOrUpdate();
-                }
-            }
+                // Process response in main thread
+                mainHandler.post(() -> {
+                    if (!isFragmentAttached || !isAdded()) {
+                        Log.d(TAG, "Fragment is detached, ignoring API response");
+                        return;
+                    }
 
-            @Override
-            public void onFailure(Call<ProductResponse> call, Throwable t) {
-                if (!isFragmentAttached || call.isCanceled()) return;
+                    try {
+                        if (response.isSuccessful() && response.body() != null) {
+                            List<Product> categoryProducts = response.body().getProducts();
+                            Log.d(TAG, "Received " + categoryProducts.size() + " products for " + category);
 
-                Log.e(TAG, "API call failed for " + category + ": " + t.getMessage());
+                            // Add products from this category to the list
+                            allProducts.addAll(categoryProducts);
 
-                // Show error only if no products loaded yet
-                if (allProducts.isEmpty()) {
-                    showNetworkError();
-                } else {
-                    // If some products loaded, continue with what we have
-                    Toast.makeText(getContext(), "Gagal memuat beberapa produk", Toast.LENGTH_SHORT).show();
-                }
+                            // Fetch next category or update UI if all categories are done
+                            fetchNextCategoryOrUpdate();
+                        } else {
+                            Log.e(TAG, "Failed to fetch products for category: " + category);
+                            fetchNextCategoryOrUpdate();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing API response: " + e.getMessage());
+                        fetchNextCategoryOrUpdate();
+                    }
+                });
+            } catch (IOException e) {
+                // Handle error in main thread
+                mainHandler.post(() -> {
+                    if (!isAdded()) return;
 
-                isLoading = false;
+                    Log.e(TAG, "API call failed for " + category + ": " + e.getMessage());
+
+                    // Show error only if no products loaded yet
+                    if (allProducts.isEmpty()) {
+                        showNetworkError();
+                    } else {
+                        // If some products loaded, continue with what we have
+                        Toast.makeText(getContext(), "Gagal memuat beberapa produk", Toast.LENGTH_SHORT).show();
+                    }
+
+                    isLoading = false;
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Unexpected error: " + e.getMessage());
+                mainHandler.post(() -> {
+                    if (isAdded()) {
+                        showNetworkError();
+                        isLoading = false;
+                    }
+                });
             }
         });
     }
 
     private void fetchNextCategoryOrUpdate() {
+        if (!isAdded()) return;
+
         currentCategoryIndex++;
 
         // Check if there are more categories to process
@@ -469,43 +610,60 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
             } else {
                 // If products loaded, filter and display
                 hideNetworkError();
-                filterProductsByCategory(currentCategory);
+                // Process filtering in background thread
+                executor.execute(() -> {
+                    final List<Product> filteredProducts = filterProductsInBackground(currentCategory);
+
+                    // Update UI in main thread
+                    mainHandler.post(() -> {
+                        if (!isAdded()) return;
+                        updateProductsUI(filteredProducts, currentCategory);
+                    });
+                });
             }
         }
     }
 
-    private void filterProductsByCategory(String categoryId) {
-        if (allProducts.isEmpty()) return;
-
-        List<Product> filteredList;
+    private List<Product> filterProductsInBackground(String categoryId) {
+        if (allProducts.isEmpty()) return new ArrayList<>();
 
         if (categoryId.equals("all")) {
             // Show all products from our 4 specific categories
-            filteredList = new ArrayList<>(allProducts);
+            return new ArrayList<>(allProducts);
         } else {
             // Filter by selected category
-            filteredList = allProducts.stream()
+            return allProducts.stream()
                     .filter(product -> product.getCategory().equals(categoryId))
                     .collect(Collectors.toList());
         }
+    }
 
-        // Update adapter with filtered products using VIEW_TYPE_CARD
-        productAdapter = new ProductAdapter(requireContext(), filteredList, ProductAdapter.VIEW_TYPE_CARD);
-        recyclerProducts.setAdapter(productAdapter);
+    private void updateProductsUI(List<Product> filteredList, String categoryId) {
+        if (!isAdded() || recyclerProducts == null) return;
 
-        // Update title
-        if (textViewAll != null && textViewAll.getParent() instanceof ViewGroup) {
-            ViewGroup parent = (ViewGroup) textViewAll.getParent();
-            if (parent.getChildCount() > 0 && parent.getChildAt(0) instanceof TextView) {
-                TextView titleTextView = (TextView) parent.getChildAt(0);
+        try {
+            // Update adapter with filtered products using VIEW_TYPE_CARD
+            productAdapter = new ProductAdapter(getContext(), filteredList, ProductAdapter.VIEW_TYPE_CARD);
+            recyclerProducts.setAdapter(productAdapter);
 
-                // Set title with product count
-                String categoryName = getCategoryDisplayName(categoryId);
-                titleTextView.setText(categoryName + " (" + filteredList.size() + ")");
+            // Update title
+            if (textViewAll != null && textViewAll.getParent() instanceof ViewGroup) {
+                ViewGroup parent = (ViewGroup) textViewAll.getParent();
+                if (parent.getChildCount() > 0 && parent.getChildAt(0) instanceof TextView) {
+                    TextView titleTextView = (TextView) parent.getChildAt(0);
+
+                    // Set title with product count
+                    String categoryName = getCategoryDisplayName(categoryId);
+                    titleTextView.setText(categoryName + " (" + filteredList.size() + ")");
+                }
             }
-        }
 
-        textViewAll.setText(filteredList.isEmpty() ? "No products" : "View all");
+            if (textViewAll != null) {
+                textViewAll.setText(filteredList.isEmpty() ? "No products" : "View all");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating product UI: " + e.getMessage());
+        }
     }
 
     private String getCategoryDisplayName(String categoryId) {
@@ -527,45 +685,66 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
 
     @Override
     public void onCategoryClick(String categoryId) {
+        if (!isAdded()) return;
+
         // Save current category
         currentCategory = categoryId;
 
-        // Filter products by the selected category
-        filterProductsByCategory(categoryId);
+        // Process filtering in background thread
+        executor.execute(() -> {
+            try {
+                final List<Product> filteredProducts = filterProductsInBackground(categoryId);
+
+                // Update UI in main thread
+                mainHandler.post(() -> {
+                    if (!isAdded()) return;
+                    updateProductsUI(filteredProducts, categoryId);
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error in category click handling: " + e.getMessage());
+            }
+        });
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        // Start auto-scroll when fragment is visible
-        autoScrollHandler.postDelayed(autoScrollRunnable, 3000);
+
+        // Pastikan handler dan runnable tidak null sebelum dipanggil
+        if (isAdded() && autoScrollHandler != null && autoScrollRunnable != null && bannerItems != null && !bannerItems.isEmpty()) {
+            autoScrollHandler.postDelayed(autoScrollRunnable, 3000);
+        }
 
         // Reload products if favoriteManager changed
-        if (productAdapter != null) {
+        if (isAdded() && productAdapter != null) {
             productAdapter.notifyDataSetChanged();
         }
 
         // Update theme icon in case it was changed elsewhere
-        if (themeToggleButton != null) {
+        if (isAdded() && themeToggleButton != null) {
             updateThemeToggleIcon();
         }
     }
 
     @Override
     public void onPause() {
-        // Stop auto-scroll when fragment is not visible
-        autoScrollHandler.removeCallbacks(autoScrollRunnable);
+        // Pastikan handler dan runnable tidak null sebelum dipanggil
+        if (autoScrollHandler != null && autoScrollRunnable != null) {
+            autoScrollHandler.removeCallbacks(autoScrollRunnable);
+        }
         super.onPause();
     }
 
     private void retryLoading() {
-        if (!isLoading) {
-            hideNetworkError();
-            fetchAllProducts();
-        }
+        if (!isAdded() || isLoading) return;
+
+        hideNetworkError();
+        fetchAllProducts();
     }
 
     private void showNetworkError() {
+        if (!isAdded()) return;
+
         if (progressBar != null) {
             progressBar.setVisibility(View.GONE);
         }
@@ -578,6 +757,8 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
     }
 
     private void hideNetworkError() {
+        if (!isAdded()) return;
+
         if (networkErrorLayout != null) {
             networkErrorLayout.setVisibility(View.GONE);
         }
@@ -588,5 +769,12 @@ public class HomeFragment extends Fragment implements CategoryAdapter.OnCategory
 
     private boolean isNetworkAvailable() {
         return NetworkStateManager.getInstance().isNetworkAvailable();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        // Shutdown thread pool untuk mencegah memory leak
+        executor.shutdown();
     }
 }

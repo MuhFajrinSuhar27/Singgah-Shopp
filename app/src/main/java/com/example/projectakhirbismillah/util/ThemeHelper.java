@@ -3,11 +3,15 @@ package com.example.projectakhirbismillah.util;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class ThemeHelper {
     private static final String TAG = "ThemeHelper";
@@ -29,8 +33,30 @@ public class ThemeHelper {
         int currentMode = AppCompatDelegate.getDefaultNightMode();
         Log.d(TAG, "Previous theme mode was: " + currentMode);
         
-        // Force theme mode with more persistence
-        AppCompatDelegate.setDefaultNightMode(themeMode);
+        // Make sure we're on the main thread
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            // Already on main thread, apply directly
+            AppCompatDelegate.setDefaultNightMode(themeMode);
+            Log.d(TAG, "Theme applied on main thread: " + themeMode);
+        } else {
+            // We're not on the main thread, post to main thread and wait
+            CountDownLatch latch = new CountDownLatch(1);
+            new Handler(Looper.getMainLooper()).post(() -> {
+                try {
+                    AppCompatDelegate.setDefaultNightMode(themeMode);
+                    Log.d(TAG, "Theme applied on main thread (via handler): " + themeMode);
+                } finally {
+                    latch.countDown();
+                }
+            });
+            
+            try {
+                // Wait for the theme to be applied on the main thread
+                latch.await(500, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Interrupted while waiting for theme to apply", e);
+            }
+        }
         
         // Log untuk verifikasi
         Log.d(TAG, "Theme mode after set: " + AppCompatDelegate.getDefaultNightMode());
@@ -101,30 +127,26 @@ public class ThemeHelper {
         int newMode = isDark ? MODE_LIGHT : MODE_DARK;
         Log.d(TAG, "Switching to mode: " + newMode);
         
-        // Force immediate apply
+        // Simpan preferensi
         saveThemeMode(context, newMode);
         
-        // Paksa tema berubah segera
+       
         applyTheme(newMode);
         
-        // Log untuk debugging
+        
         isDark = isDarkMode(context);
         Log.d(TAG, "After toggle, is dark mode: " + isDark);
     }
     
+  
 
-    /**
-     * Initialize theme from saved preferences
-     */
     public static void initTheme(Context context) {
         int themeMode = getThemeMode(context);
         Log.d(TAG, "Initializing theme with mode: " + themeMode);
         applyTheme(themeMode);
     }
 
-    /**
-     * Reset theme to default (light)
-     */
+ 
     public static void resetTheme(Context context) {
         saveThemeMode(context, MODE_LIGHT);
         applyTheme(MODE_LIGHT);

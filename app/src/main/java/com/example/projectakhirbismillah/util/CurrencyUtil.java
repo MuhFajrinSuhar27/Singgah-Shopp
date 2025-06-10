@@ -18,7 +18,7 @@ public class CurrencyUtil {
         // Format sebagai mata uang Rupiah
         NumberFormat formatRupiah = NumberFormat.getCurrencyInstance(new Locale("in", "ID"));
         formatRupiah.setMaximumFractionDigits(0); // Menghilangkan angka desimal
-        
+
         return formatRupiah.format(roundedPrice);
     }
 
@@ -26,7 +26,7 @@ public class CurrencyUtil {
     public static String formatToRupiahExact(double priceInIDR) {
         NumberFormat formatRupiah = NumberFormat.getCurrencyInstance(new Locale("in", "ID"));
         formatRupiah.setMaximumFractionDigits(0); // Menghilangkan angka desimal
-        
+
         return formatRupiah.format(priceInIDR);
     }
 
@@ -35,7 +35,7 @@ public class CurrencyUtil {
         double priceInIDR = priceInUSD * USD_TO_IDR_RATE;
         return (int) (Math.round(priceInIDR / 1000) * 1000);
     }
-    
+
     // Mendapatkan harga dalam IDR yang sudah dibulatkan ke atas (untuk keamanan pembayaran)
     public static int getIDRPriceRoundedUp(double priceInUSD) {
         double priceInIDR = priceInUSD * USD_TO_IDR_RATE;

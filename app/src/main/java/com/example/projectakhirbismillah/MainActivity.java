@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.FrameLayout;
 
@@ -12,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 
@@ -23,13 +25,11 @@ import com.example.projectakhirbismillah.util.CartManager;
 import com.example.projectakhirbismillah.util.FavoriteManager;
 import com.example.projectakhirbismillah.util.NetworkStateManager;
 import com.example.projectakhirbismillah.util.SessionManager;
+import com.example.projectakhirbismillah.util.ThemeHelper;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
 
-import androidx.core.view.WindowCompat;
-
 public class MainActivity extends AppCompatActivity implements NetworkStateManager.NetworkStateListener {
-
     private static final String TAG = "MainActivity";
     private BottomNavigationView bottomNavigationView;
     private SessionManager sessionManager;
@@ -39,9 +39,23 @@ public class MainActivity extends AppCompatActivity implements NetworkStateManag
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Terapkan tema sebelum super.onCreate() dan setContentView()
+        Log.d(TAG, "Applying saved theme from preferences before content view");
+        int savedThemeMode = ThemeHelper.getThemeMode(this);
+        ThemeHelper.applyTheme(savedThemeMode);
+        Log.d(TAG, "Saved theme mode: " + savedThemeMode);
+
+        // Panggil super.onCreate() hanya SEKALI
         super.onCreate(savedInstanceState);
+
+        // Atur window insets
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
+        // Set layout - hanya SEKALI
         setContentView(R.layout.activity_main);
+
+        Log.d(TAG, "MainActivity created with theme: " +
+                (ThemeHelper.isDarkMode(this) ? "Dark" : "Light"));
 
         // Initialize session manager
         sessionManager = new SessionManager(this);
@@ -49,7 +63,7 @@ public class MainActivity extends AppCompatActivity implements NetworkStateManag
         // Initialize network state manager
         NetworkStateManager.getInstance().initialize(getApplicationContext());
 
-        // Initialize CartManager singleton with application context
+        // Initialize CartManager dan FavoriteManager singleton with application context
         CartManager.getInstance(getApplicationContext());
         FavoriteManager.getInstance().initialize(getApplicationContext());
 
@@ -69,6 +83,9 @@ public class MainActivity extends AppCompatActivity implements NetworkStateManag
             finish();
             return;
         }
+
+        // Setup edge-to-edge display
+        setupEdgeToEdge();
 
         bottomNavigationView = findViewById(R.id.bottom_navigation);
 
@@ -93,12 +110,15 @@ public class MainActivity extends AppCompatActivity implements NetworkStateManag
                 getSupportFragmentManager().beginTransaction()
                         .replace(R.id.fragment_container, selectedFragment)
                         .commit();
+                hideNetworkError();
+                return true;
             } else if (!NetworkStateManager.getInstance().isNetworkAvailable()) {
                 // Show network error if there's no connection
                 showNetworkError();
+                return true;
             }
 
-            return true;
+            return false;
         });
 
         // Set default fragment if no network issues
@@ -114,9 +134,27 @@ public class MainActivity extends AppCompatActivity implements NetworkStateManag
         NetworkStateManager.getInstance().addListener(this);
     }
 
+    private void setupEdgeToEdge() {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+
+            // Adjust the bottom padding of fragmentContainer to account for navigation bar
+            if (fragmentContainer != null) {
+                fragmentContainer.setPadding(
+                        fragmentContainer.getPaddingLeft(),
+                        fragmentContainer.getPaddingTop(),
+                        fragmentContainer.getPaddingRight(),
+                        systemBars.bottom
+                );
+            }
+
+            return insets;
+        });
+    }
+
     @Override
     protected void onDestroy() {
-        // Remove network listener
+        // Remove network listener to prevent memory leaks
         NetworkStateManager.getInstance().removeListener(this);
         super.onDestroy();
     }
